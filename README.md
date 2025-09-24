@@ -56,7 +56,7 @@ OPTIONS
      -c <string>        Custom connect string
 
      -h <ds_host>       Directory server fully qualified host name
-                        Default: tns1.sub10241351260.odswest.oraclevcn.com
+                        Default: tns1.example.com
 
      -p <ldaps_port>    Directory server secure (ldaps) port number
                         Default: 10636
@@ -76,13 +76,13 @@ OPTIONS
                         Default: /u01/app/oracle/19c/dbhome_1
 
      --dbhost <host>    Fully qualified database host name 
-                        Default: tns1.sub10241351260.odswest.oraclevcn.com
+                        Default: tns1.example.com
 
      --dbport <port>    Database port number
                         Default: 1521
 
      --subject <DN>      Certificate subject DN
-                        Default: tns1.sub10241351260.odswest.oraclevcn.com
+                        Default: tns1.example.com
 
      --wallet <wallet>  Wallet location
                         Default: SYSTEM
@@ -117,15 +117,71 @@ Entra ID Integration Options
 
 ## Examples
 
-Register a database
-manage_tns.sh register -n hrdb -p 1636
+**Example 1: Register a database**  
+$ /u01/manage_tns.sh.sh register -n mydb [-h <ds_host>] [-p <ldaps_port>] [-D <tns_admin>] [-j <pw_file>]
+Directory Server: ldaps://tns1.example.com:10636
+User: Loging into directory as cn=eusadmin,ou=EUSAdmins,cn=oracleContext
+Enter directory service TNS admin user's password: *********
+Step 1 - Register database mydb.
 
 
-Register a database that includes Entra ID integration configuration
+**Example 2: Register a database that includes Entra ID integration configuration**  
+$ /u01/manage_tns.sh register -n mypdb --method interactive --tenantid 7f4c6e3e-a1e0-43fe-14c5-c2f051a0a3a1 --clientid e5124a85-ac3e-14a4-f2ca-1ad635cf781a --serveruri "https://dbauthdemo.com/16736175-ca41-8f33-af0d-4616ade17621"
+Directory Server: ldaps://tns1.example.com:10636
+User: Loging into directory as cn=eusadmin,ou=EUSAdmins,cn=oracleContext
+Enter directory service TNS admin user's password: *********
+Step 1 - Register database mypdb.
 
-manage_tns.sh register -n hrdb -p 1636 --method interactive --tenantid 7f4c6e3e-a1e0-43fe-14c5-c2f051a0a3a1 --clientid e5124a85-ac3e-14a4-f2ca-1ad635cf781a --serveruri "https://dbauthdemo.com/16736175-ca41-8f33-af0d-4616ade17621"
 
-*Describe any included examples or provide a link to a demo/tutorial*
+**Example 3: List registered databases**  
+manage_tns.sh list [-h <ds_host>] [-p <ldaps_port>] [-D <tns_admin>] [-j <pw_file>]
+Directory Server: ldaps://tns1.example.com:10636
+User: Loging into directory service anonymously
+Step: 1 - List registered databases
+
+cn=mydb,cn=OracleContext,dc=example,dc=com
+orclNetDescString: (DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=tns1.example.com)(PORT=1521))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=mydb)))
+
+cn=mypdb,cn=OracleContext,dc=example,dc=com
+orclNetDescString: (DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=tns1.example.com)(PORT=1521))(SECURITY=(SSL_SERVER_DN_MATCH=TRUE)(WALLET_LOCATION=SYSTEM)(TOKEN_AUTH=AZURE_INTERACTIVE)(TENANT_ID=7f4c6e3e-a1e0-43fe-14c5-c2f051a0a3a1)(AZURE_DB_APP_ID_URI=https://dbauthdemo.com/16736175-ca41-8f33-af0d-4616ade17621)(CLIENT_ID=e5124a85-ac3e-14a4-f2ca-1ad635cf781a))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=mypdb)))
+
+**Example 4: Show specific registered database**
+$ /u01/manage_tns.sh show -n mypdb
+Directory Server: ldaps://tns1.example.com:10636
+User: Loging into directory service anonymously
+Step: 1 - Show database mypdb
+dn: cn=mypdb,cn=OracleContext,dc=example,dc=com
+cn: mypdb
+objectClass: orclApplicationEntity
+objectClass: orclDBServer
+objectClass: orclService
+objectClass: top
+objectClass: orclDBServer_92
+orclDBGlobalName: mypdb
+orclNetDescName: 000:cn=DESCRIPTION_0
+orclNetDescString: (DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=tns1.example.com)(PORT=1521))(SECURITY=(SSL_SERVER_DN_MATCH=TRUE)(WALLET_LOCATION=SYSTEM)(TOKEN_AUTH=AZURE_INTERACTIVE)(TENANT_ID=7f4c6e3e-a1e0-43fe-14c5-c2f051a0a3a1)(AZURE_DB_APP_ID_URI=https://dbauthdemo.com/16736175-ca41-8f33-af0d-4616ade17621)(CLIENT_ID=e5124a85-ac3e-14a4-f2ca-1ad635cf781a))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=mypdb)))
+orclOracleHome: /dbhome_1
+orclServiceType: DB
+orclSid: mypdb
+orclSystemName: tns1.example.com
+orclVersion: 121000
+
+**Example 5: Un-register a database**  
+$ /u01/manage_tns.sh.sh unregister -n mydb [-h <ds_host>] [-p <ldaps_port>] [-D <tns_admin>] [-j <pw_file>]
+Directory Server: ldaps://tns1.example.com:10636
+User: Loging into directory as cn=eusadmin,ou=EUSAdmins,cn=oracleContext
+Enter directory service TNS admin user's password: *********
+Step 1 - Unregister database mydb.
+Successful
+
+**Example 6: List registered databases**  
+manage_tns.sh list [-h <ds_host>] [-p <ldaps_port>] [-D <tns_admin>] [-j <pw_file>]
+Directory Server: ldaps://tns1.example.com:10636
+User: Loging into directory service anonymously
+Step: 1 - List registered databases
+
+cn=mypdb,cn=OracleContext,dc=example,dc=com
+orclNetDescString: (DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=tns1.example.com)(PORT=1521))(SECURITY=(SSL_SERVER_DN_MATCH=TRUE)(WALLET_LOCATION=SYSTEM)(TOKEN_AUTH=AZURE_INTERACTIVE)(TENANT_ID=7f4c6e3e-a1e0-43fe-14c5-c2f051a0a3a1)(AZURE_DB_APP_ID_URI=https://dbauthdemo.com/16736175-ca41-8f33-af0d-4616ade17621)(CLIENT_ID=e5124a85-ac3e-14a4-f2ca-1ad635cf781a))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=mypdb)))
 
 
 ## Security
