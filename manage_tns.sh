@@ -532,6 +532,51 @@ show_db() {
    fi
 }
 
+##############################################################################
+# Show the connect string of specified database entry
+##############################################################################
+show_connect_string() {
+   echo "Show connect string of database ${dbAlias}"
+
+   cs=$(pyLdapSearch ldaps "${dsHost}" "${ldapsPort}" "${tnsAdmin}" "${suffix}" 'sub' "(cn=${dbAlias})"|grep -i "^orclNetDescString:"|sed -e "s/orclNetDescString: //gi")
+
+   if [ -n "${cs}" ]
+   then
+      echo ${cs}|sed \
+         -e 's/[      ]//g' \
+         -e 's/[[:space:]]*#.*$//' \
+         | sed \
+         -e "s/=(DESCRIPTION=/=\n   (DESCRIPTION=/gi" \
+         -e "s/)(DESCRIPTION=/)\n   (DESCRIPTION=/gi" \
+         -e "s/)(ADDRESS_LIST=/)\n      (ADDRESS_LIST=/gi" \
+         -e "s/=(ADDRESS_LIST=/=\n      (ADDRESS_LIST=/gi" \
+         -e "s/)(SECURITY=/)\n         (SECURITY=/gi" \
+         -e "s/=(SSL_SERVER_DN_MATCH=/=\n            (SSL_SERVER_DN_MATCH=/gi" \
+         -e "s/)(SSL_SERVER_DN_MATCH=/)\n            (SSL_SERVER_DN_MATCH=/gi" \
+         -e "s/)(WALLET_LOCATION=/)\n            (WALLET_LOCATION=/gi" \
+         -e "s/)(TOKEN_AUTH=/)\n            (TOKEN_AUTH=/gi" \
+         -e "s/)(TENANT_ID=/)\n            (TENANT_ID=/gi" \
+         -e "s/)(AZURE_DB_APP_ID_URI=/)\n            (AZURE_DB_APP_ID_URI=/gi" \
+         -e "s/)(CLIENT_ID=/)\n            (CLIENT_ID=/gi" \
+         -e "s/(LOAD_BALANCE=/\n         (LOAD_BALANCE=/gi" \
+         -e "s/(CONNECT_TIMEOUT=/\n         (CONNECT_TIMEOUT=/gi" \
+         -e "s/(RETRY_COUNT=/\n         (RETRY_COUNT=/gi" \
+         -e "s/(RETRY_DELAY=/\n         (RETRY_DELAY=/gi" \
+         -e "s/(FAILOVER=/\n         (FAILOVER=/gi" \
+         -e "s/(TRANSPORT_CONNECT_TIMEOUT=/\n         (TRANSPORT_CONNECT_TIMEOUT=/gi" \
+         -e "s/)(ADDRESS=/)\n         (ADDRESS=/gi" \
+         -e "s/=(ADDRESS=/=\n         (ADDRESS=/gi" \
+         -e "s/=(CONNECT_DATA/=\n         (CONNECT_DATA/gi" \
+         -e "s/)(CONNECT_DATA/)\n      (CONNECT_DATA/gi" \
+         -e "s/(SERVER/\n         (SERVER/gi" \
+         -e "s/(SERVICE_NAME/\n         (SERVICE_NAME/gi"
+   else
+      echo "Database ${dbAlias} is not registered"
+      exit 1
+   fi
+
+}
+
 ###############################################################################
 # Base variables
 ###############################################################################
@@ -603,7 +648,7 @@ if [ -z "${ldapPW}" ];then ldapPW="${bPW}";fi
 # Provide user context
 if [ -z "${bPW}" ]
 then
-   if [ "${subcmd}" == 'list' ] || [ "${subcmd}" == 'show' ]
+   if [ "${subcmd}" == 'list' ] || [ "${subcmd}" == 'show' ] || [ "${subcmd}" == 'showcs' ]
    then
       echo "User: Loging into directory service anonymously"
    elif [ "${subcmd}" == 'register' ] || [ "${subcmd}" == 'unregister' ]
@@ -619,7 +664,7 @@ if [ -z "${dbService}" ];then dbService="${dbAlias}";fi
 
 if [ -z "${suffix}" ];then suffix="dc=example,dc=com";fi
 
-if [ -z "${bPW}" ] && [ "${subcmd}" != 'help' ] && [ "${subcmd}" != 'list' ] && [ "${subcmd}" != 'show' ]
+if [ -z "${bPW}" ] && [ "${subcmd}" != 'help' ] && [ "${subcmd}" != 'list' ] && [ "${subcmd}" != 'show' ] && [ "${subcmd}" != 'showcs' ]
 then
    echo -e "Enter directory service TNS admin user's password: \c"
    while IFS= read -r -s -n1 char
@@ -715,6 +760,7 @@ case ${subcmd} in
      'unregister') unregister_db;;
            'list') list_dbs;;
            'show') show_db;;
+         'showcs') show_connect_string;;
                 *) showUsage;;
 esac
 set +x
