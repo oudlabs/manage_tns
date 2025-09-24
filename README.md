@@ -4,7 +4,7 @@ The purpose of this script is to simplify Oracle database name service entry man
 
 ## Installation
 
-*The instructions are very simple. Download and use the script on any Linux system.
+The installation instructions are very simple. Download and use the script and use on any Linux system.
 
 ## Usage
 
