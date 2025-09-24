@@ -8,10 +8,10 @@ The purpose of this script is to simplify Oracle database name service entry man
 
 ## Usage
 
-NAME
+###NAME
      manage_tns.sh [subcommand] -n <alias> [options]
 
-SUBCOMMANDS
+###SUBCOMMANDS
 
         register      Register a database
 
@@ -21,7 +21,7 @@ SUBCOMMANDS
 
         list          List all registered database
 
-SYNOPSIS
+###SYNOPSIS
 
      Register database with default connect string
         manage_tns.sh register -n <alias>
@@ -41,7 +41,8 @@ SYNOPSIS
      List database entries
         manage_tns.sh list
 
-OPTIONS
+###OPTIONS
+
      The following options are supported:
 
      -z                 Show debug output
@@ -97,7 +98,7 @@ OPTIONS
                            POOLED to get a connection from the connection pool if database resident 
                              connection pooling is enabled on the server
 
-Entra ID Integration Options
+###Entra ID Integration Options
 
      --method <method>  Authentication method
                         Default: interactive
@@ -115,6 +116,14 @@ Entra ID Integration Options
 
 
 ## Examples
+
+Register a database
+manage_tns.sh register -n hrdb -p 1636
+
+
+Register a database that includes Entra ID integration configuration
+
+manage_tns.sh register -n hrdb -p 1636 --method interactive --tenantid 7f4c6e3e-a1e0-43fe-14c5-c2f051a0a3a1 --clientid e5124a85-ac3e-14a4-f2ca-1ad635cf781a --serveruri "https://dbauthdemo.com/16736175-ca41-8f33-af0d-4616ade17621"
 
 *Describe any included examples or provide a link to a demo/tutorial*
 
