@@ -35,11 +35,15 @@ SYNOPSIS
      Unregister database
         manage_tns.sh unregister -n <alias>
 
+     List database entries
+        manage_tns.sh list
+
      Show database entry
         manage_tns.sh show -n <alias>
 
-     List database entries
-        manage_tns.sh list
+     Show database entry connect string
+        manage_tns.sh showcs -n <alias>
+
 
 OPTIONS
 
