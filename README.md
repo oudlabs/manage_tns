@@ -12,6 +12,7 @@ NAME
      manage_tns.sh [subcommand] -n <alias> [options]
 
 SUBCOMMANDS
+
         register      Register a database
 
         unregister    Unregister a database
