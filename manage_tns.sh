@@ -29,9 +29,12 @@ DESCRIPTION
 
         unregister    Unregister a database
 
+        list          List all registered database
+
         show          Show the database TNS entry
 
-        list          List all registered database
+        showcs        Show the database TNS entry connect string
+
 
 SYNOPSIS
 
