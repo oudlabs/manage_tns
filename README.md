@@ -122,7 +122,8 @@ $ /u01/manage_tns.sh.sh register -n mydb [-h <ds_host>] [-p <ldaps_port>] [-D <t
 Directory Server: ldaps://tns1.example.com:10636
 User: Loging into directory as cn=eusadmin,ou=EUSAdmins,cn=oracleContext
 Enter directory service TNS admin user's password: *********
-Step 1 - Register database mydb.
+Register database mydb
+Database registration completed successfully
 
 
 **Example 2: Register a database that includes Entra ID integration configuration**  
@@ -130,14 +131,14 @@ $ /u01/manage_tns.sh register -n mypdb --method interactive --tenantid 7f4c6e3e-
 Directory Server: ldaps://tns1.example.com:10636
 User: Loging into directory as cn=eusadmin,ou=EUSAdmins,cn=oracleContext
 Enter directory service TNS admin user's password: *********
-Step 1 - Register database mypdb.
-
+Register database mypdb
+Database registration completed successfully
 
 **Example 3: List registered databases**  
 manage_tns.sh list [-h <ds_host>] [-p <ldaps_port>] [-D <tns_admin>] [-j <pw_file>]
 Directory Server: ldaps://tns1.example.com:10636
 User: Loging into directory service anonymously
-Step: 1 - List registered databases
+List registered databases
 
 cn=mydb,cn=OracleContext,dc=example,dc=com
 orclNetDescString: (DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=tns1.example.com)(PORT=1521))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=mydb)))
@@ -149,7 +150,7 @@ orclNetDescString: (DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=tns1.example.com)(P
 $ /u01/manage_tns.sh show -n mypdb
 Directory Server: ldaps://tns1.example.com:10636
 User: Loging into directory service anonymously
-Step: 1 - Show database mypdb
+Show database mypdb
 dn: cn=mypdb,cn=OracleContext,dc=example,dc=com
 cn: mypdb
 objectClass: orclApplicationEntity
@@ -171,14 +172,14 @@ $ /u01/manage_tns.sh.sh unregister -n mydb [-h <ds_host>] [-p <ldaps_port>] [-D 
 Directory Server: ldaps://tns1.example.com:10636
 User: Loging into directory as cn=eusadmin,ou=EUSAdmins,cn=oracleContext
 Enter directory service TNS admin user's password: *********
-Step 1 - Unregister database mydb.
-Successful
+Unregister database mydb
+Database unregistration completed successfully
 
 **Example 6: List registered databases**  
 manage_tns.sh list [-h <ds_host>] [-p <ldaps_port>] [-D <tns_admin>] [-j <pw_file>]
 Directory Server: ldaps://tns1.example.com:10636
 User: Loging into directory service anonymously
-Step: 1 - List registered databases
+List registered databases
 
 cn=mypdb,cn=OracleContext,dc=example,dc=com
 orclNetDescString: (DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=tns1.example.com)(PORT=1521))(SECURITY=(SSL_SERVER_DN_MATCH=TRUE)(WALLET_LOCATION=SYSTEM)(TOKEN_AUTH=AZURE_INTERACTIVE)(TENANT_ID=7f4c6e3e-a1e0-43fe-14c5-c2f051a0a3a1)(AZURE_DB_APP_ID_URI=https://dbauthdemo.com/16736175-ca41-8f33-af0d-4616ade17621)(CLIENT_ID=e5124a85-ac3e-14a4-f2ca-1ad635cf781a))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=mypdb)))
