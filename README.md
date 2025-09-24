@@ -1,6 +1,6 @@
 # manage_tns
 
-*The purpose of this project is to provide a basic script for managing Oracle database name service entries in an LDAP-based directory service
+The purpose of this script is to simplify Oracle database name service entry management in an LDAP-based directory service
 
 ## Installation
 
@@ -11,11 +11,7 @@
 NAME
      manage_tns.sh [subcommand] -n <alias> [options]
 
-DESCRIPTION
-     The purpose of this script is to simplify TNS entry management in a
-     LDAP-based directory service
-
-     Subcommands:
+SUBCOMMANDS
         register      Register a database
 
         unregister    Unregister a database
