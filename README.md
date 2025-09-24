@@ -9,7 +9,7 @@ The installation instructions are very simple. Download and use the script and u
 ## Usage
 
 NAME
-     manage_tns.sh [subcommand] -n <alias> [options]
+     manage_tns.sh [subcommand] -n \<alias\> [options]
 
 SUBCOMMANDS
 
