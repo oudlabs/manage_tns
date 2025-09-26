@@ -122,7 +122,7 @@ Entra ID Integration Options
 ## Examples
 
 **Example 1: Register a database**  
-$ /u01/manage_tns.sh.sh register -n mydb [-h <ds_host>] [-p <ldaps_port>] [-D <tns_admin>] [-j <pw_file>]  
+$ /u01/manage_tns.sh.sh register -n mydb --suffix "dc=example,dc=com"
 Directory Server: ldaps://tns1.example.com:10636  
 User: Loging into directory as cn=eusadmin,ou=EUSAdmins,cn=oracleContext  
 Enter directory service TNS admin user's password: *********  
@@ -131,7 +131,7 @@ Database registration completed successfully
 
 
 **Example 2: Register a database that includes Entra ID integration configuration**  
-$ /u01/manage_tns.sh register -n mypdb --method interactive --tenantid 7f4c6e3e-a1e0-43fe-14c5-c2f051a0a3a1 --clientid e5124a85-ac3e-14a4-f2ca-1ad635cf781a --serveruri "https://dbauthdemo.com/16736175-ca41-8f33-af0d-4616ade17621"  
+$ /u01/manage_tns.sh register -n mypdb --suffix "dc=example,dc=com" --method interactive --tenantid 7f4c6e3e-a1e0-43fe-14c5-c2f051a0a3a1 --clientid e5124a85-ac3e-14a4-f2ca-1ad635cf781a --serveruri "https://dbauthdemo.com/16736175-ca41-8f33-af0d-4616ade17621"  
 Directory Server: ldaps://tns1.example.com:10636  
 User: Loging into directory as cn=eusadmin,ou=EUSAdmins,cn=oracleContext  
 Enter directory service TNS admin user's password: *********  
@@ -151,7 +151,7 @@ cn=mypdb,cn=OracleContext,dc=example,dc=com
 orclNetDescString: (DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=tns1.example.com)(PORT=1521))(SECURITY=(SSL_SERVER_DN_MATCH=TRUE)(WALLET_LOCATION=SYSTEM)(TOKEN_AUTH=AZURE_INTERACTIVE)(TENANT_ID=7f4c6e3e-a1e0-43fe-14c5-c2f051a0a3a1)(AZURE_DB_APP_ID_URI=https://dbauthdemo.com/16736175-ca41-8f33-af0d-4616ade17621)(CLIENT_ID=e5124a85-ac3e-14a4-f2ca-1ad635cf781a))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=mypdb)))  
 
 **Example 4: Show specific registered database**  
-$ /u01/manage_tns.sh show -n mypdb  
+$ /u01/manage_tns.sh show -n mypdb --suffix "dc=example,dc=com" 
 Directory Server: ldaps://tns1.example.com:10636  
 User: Loging into directory service anonymously  
 Show database mypdb  
@@ -172,7 +172,7 @@ orclSystemName: tns1.example.com
 orclVersion: 121000  
 
 **Example 5: Un-register a database**  
-$ /u01/manage_tns.sh.sh unregister -n mydb [-h <ds_host>] [-p <ldaps_port>] [-D <tns_admin>] [-j <pw_file>]  
+$ /u01/manage_tns.sh.sh unregister -n mydb --suffix "dc=example,dc=com"
 Directory Server: ldaps://tns1.example.com:10636  
 User: Loging into directory as cn=eusadmin,ou=EUSAdmins,cn=oracleContext  
 Enter directory service TNS admin user's password: *********  
@@ -180,7 +180,7 @@ Unregister database mydb
 Database unregistration completed successfully  
 
 **Example 6: List registered databases**  
-manage_tns.sh list [-h <ds_host>] [-p <ldaps_port>] [-D <tns_admin>] [-j <pw_file>]  
+manage_tns.sh list --suffix "dc=example,dc=com"
 Directory Server: ldaps://tns1.example.com:10636  
 User: Loging into directory service anonymously  
 List registered databases  
@@ -190,7 +190,7 @@ orclNetDescString: (DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=tns1.example.com)(P
 
   
 **Example 7: Register database with TCPS**  
-$ /u01/manage_tns.sh register -n pdb3 --dbhost pdb3.example.com --dbport 2484 --dbproto TCPS -s pdb3.example.com  
+$ /u01/manage_tns.sh register -n pdb3 --suffix "dc=example,dc=com" --dbhost pdb3.example.com --dbport 2484 --dbproto TCPS -s pdb3.example.com  
 Directory Server: ldaps://tns1.example.com:10636  
 User: Loging into directory as cn=eusadmin,ou=EUSAdmins,cn=oracleContext  
 Enter directory service TNS admin user's password: *********  
@@ -199,7 +199,7 @@ Database registration completed successfully
   
  
 **Example 8: Show database pdb3**  
-$ /u01/manage_tns.sh show -n pdb3  
+$ /u01/manage_tns.sh show -n pdb3 --suffix "dc=example,dc=com" 
 Directory Server: ldaps://tns1.example.com:10636  
 User: Loging into directory service anonymously  
 Show database pdb3  
@@ -220,7 +220,7 @@ orclSystemName: pdb3.example.com
 orclVersion: 121000  
   
 **Example 9: Register database with custom connect string**  
-$ /u01/manage_tns.sh register -n pdb4 -c "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCPS)(HOST=pdb4.example.com)(PORT=2484))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=pdb4.example.com)))"  
+$ /u01/manage_tns.sh register -n pdb4 --suffix "dc=example,dc=com" -c "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCPS)(HOST=pdb4.example.com)(PORT=2484))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=pdb4.example.com)))"  
 Directory Server: ldaps://tns1.example.com:10636  
 User: Loging into directory as cn=eusadmin,ou=EUSAdmins,cn=oracleContext  
 Enter directory service TNS admin user's password: *********  
