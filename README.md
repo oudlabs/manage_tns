@@ -138,17 +138,14 @@ Enter directory service TNS admin user's password: *********
 Register database mypdb  
 Database registration completed successfully  
 
+
 **Example 3: List registered databases**  
-manage_tns.sh list [-h <ds_host>] [-p <ldaps_port>] [-D <tns_admin>] [-j <pw_file>]  
+$ /u01/manage_tns.sh list --suffix "dc=example,dc=com"
 Directory Server: ldaps://tns1.example.com:10636  
 User: Loging into directory service anonymously  
 List registered databases  
-  
-cn=mydb,cn=OracleContext,dc=example,dc=com  
-orclNetDescString: (DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=tns1.example.com)(PORT=1521))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=mydb)))  
-
-cn=mypdb,cn=OracleContext,dc=example,dc=com  
-orclNetDescString: (DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=tns1.example.com)(PORT=1521))(SECURITY=(SSL_SERVER_DN_MATCH=TRUE)(WALLET_LOCATION=SYSTEM)(TOKEN_AUTH=AZURE_INTERACTIVE)(TENANT_ID=7f4c6e3e-a1e0-43fe-14c5-c2f051a0a3a1)(AZURE_DB_APP_ID_URI=https://dbauthdemo.com/16736175-ca41-8f33-af0d-4616ade17621)(CLIENT_ID=e5124a85-ac3e-14a4-f2ca-1ad635cf781a))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=mypdb)))  
+mydb
+mypdb
 
 **Example 4: Show specific registered database**  
 $ /u01/manage_tns.sh show -n mypdb --suffix "dc=example,dc=com" 
