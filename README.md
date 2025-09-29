@@ -33,7 +33,7 @@ SUBCOMMANDS
 
         exportcman    Export DS entries to a tnsnames.ora file for CMAN setup
 
-        exportmsie    Export DS entries to a tnsnames.ora file for MSIE aliases
+        exportmsie    Export DS entries to a tnsnames.ora file for Microsoft Entra ID Integration (MSIE) aliases
 
         load          Load all entries from a tnsnames.ora file into DS
 
