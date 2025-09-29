@@ -829,11 +829,12 @@ load_tnsnames() {
          echo "Skipping DB alias ${dbAlias} because it already exists."
       else
          echo -e "\nAdd DB alias ${dbAlias}...\c"
-         ${curdir}/${cmd} register -n "${dbAlias}" -c "${connectString}" --suffix "${suffix}" 2>&1 |egrep -v "^Directory|^User:|^Register"
+         #${curdir}/${cmd} register -n "${dbAlias}" -c "${connectString}" --suffix "${suffix}" 2>&1 |egrep -v "^Directory|^User:|^Register"
+         ${curdir}/${cmd} register -n "${dbAlias}" -c "${connectString}" --suffix "${suffix}"
       fi
 
    done
-
+   echo
 }
 
 ###############################################################################
