@@ -427,14 +427,20 @@ unregister_db() {
    ldpProto='ldaps'
    if [ "${dbg}" == 'true' ];then set -x;fi
 
-   echo -e "Unregister database ${dbAlias}...\c"
+   dbDN=$(pyLdapSearch ldaps "${dsHost}" "${ldapsPort}" "${tnsAdmin}" "${suffix}" 'sub' "(cn=${dbAlias})"|grep "^dn: "|sed -e "s/^dn: //g")
 
-   regdb_log="${logdir}/regdb-${now}.log"
-   touch "${regdb_log}"
-   chmod 0600 "${regdb_log}"
+   if [ -z "${dbDN}" ]
+   then
+      echo "The requested database entry does not exist."  
+   else
+      echo -e "Unregister database ${dbAlias}...\c"
 
-   getPyCmd
-   ${pycmd} - <<EOPY
+      regdb_log="${logdir}/regdb-${now}.log"
+      touch "${regdb_log}"
+      chmod 0600 "${regdb_log}"
+
+      getPyCmd
+      ${pycmd} - <<EOPY
 import sys,ldap,ldif, ldap.modlist as modlist
 sys.tracebacklimit = 0
 
@@ -478,7 +484,7 @@ except ldap.LDAPError as e:
 
 # Delete the DB entry
 try:
-   l.delete_s('cn=${dbAlias},cn=OracleContext,${suffix}')
+   l.delete_s('${dbDN}')
 
 except ldap.NO_SUCH_OBJECT:
    print("database entry or naming context (${suffix}) does not exist.")
@@ -499,12 +505,8 @@ print("success")
 l.unbind_s()
 exit(0)
 EOPY
-   pyRC=$?
-#   case ${pyRC} in
-#         0) echo "Database unregistration completed successfully";;
-#         *) echo "ERROR: Database unregistration failed";;
-#   esac
-#   set +x
+      pyRC=$?
+   fi
 }
 
 ##############################################################################
