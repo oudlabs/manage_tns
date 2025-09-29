@@ -18,7 +18,7 @@ showUsage() {
 
 cat <<EOUSAGE
 NAME
-     ${cmd} [subcommand] -n <alias> [options]
+     ${cmd} [subcommand] -n <alias> --suffix <suffix> [options]
 
 DESCRIPTION
      The purpose of this script is to simplify TNS entry management in a
@@ -29,32 +29,72 @@ DESCRIPTION
 
         unregister    Unregister a database
 
-        list          List all registered database
+        list          List all registered databases
+
+        listcs        List all registered databases with connect string
+
+        listldif      List all registered databases in full LDIF format
 
         show          Show the database TNS entry
 
         showcs        Show the database TNS entry connect string
 
+        export        Export DS entries to a tnsnames.ora file
+
+        exportcman    Export DS entries to a tnsnames.ora file for CMAN setup
+
+        exportmsie    Export DS entries to a tnsnames.ora file for MSIE aliases
+
+        load          Load all entries from a tnsnames.ora file into DS
 
 SYNOPSIS
 
      Register database with default connect string
-        ${cmd} register -n <alias>
+        ${cmd} register -n <alias> --suffix <suffix>
 
      Register database with custom connect string
-        ${cmd} register -n <alias> -c "<string>"
+        ${cmd} register -n <alias> --suffix <suffix> -c "<string>"
 
      Register database with Entra ID integration
-        ${cmd} register -n <alias> --method interactive --tenantid <id> --clientid <id> --serveruri <uri>
+        ${cmd} register -n <alias> --suffix <suffix> --method interactive --tenantid <id> --clientid <id> --serveruri <uri>
 
      Unregister database
-        ${cmd} unregister -n <alias>
+        ${cmd} unregister -n <alias> --suffix <suffix>
 
      Show database entry
-        ${cmd} show -n <alias>
+        ${cmd} show -n <alias> --suffix <suffix>
+
+     Show database entry with formatted connect string
+        ${cmd} show -n <alias> --suffix <suffix>
 
      List database entries
-        ${cmd} list
+        ${cmd} list --suffix <suffix>
+
+     List database entries with connect string
+        ${cmd} listcs --suffix <suffix>
+
+     List database entries in full LDIF format
+        ${cmd} listldif --suffix <suffix>
+
+     Export all entries from the directory service to a tnsnames.ora file
+        ${cmd} export --suffix <suffix> -f <tnsnames_file>
+
+     Export all entries from the directory service to a tnsnames.ora file
+     for use in Oracle Connection Manager proxy architecture where the
+     cman_host can be an un-qualified host, fully qualified host, or IP 
+     address of the actual host or a load balancer VIP. Note for TLS
+     connections, the certificate chain of the database clients will need
+     to be for the CMAN host, not the target database host.
+        ${cmd} exportcman --suffix <suffix> -chost <cman_host> -f <tnsnames_file>
+
+     Export all entries from the directory service to a tnsnames.ora where
+     entires that do not already contain MSIE properties are tagged with
+     <entry>_MSIE or whatever tag name that you specify with --tag <tag>.
+        ${cmd} exportmsie --suffix <suffix> -f <tnsnames_file> --tag <tag>
+
+     Load all entries from a tnsnames.ora file into the directory service
+        ${cmd} load --suffix <suffix> -f <tnsnames_file>
+
 
 OPTIONS
      The following options are supported:
@@ -63,6 +103,8 @@ OPTIONS
 
      -n <alias>         Database alias name
                         Default: ${localH}
+
+     --suffix <suffix>  Directory server naming context (a.k.a. base suffix)
 
      -s <svc_name>      Database service name
                         Default: ${localH}
@@ -79,6 +121,8 @@ OPTIONS
                         Default: cn=eusadmin,ou=EUSAdmins,cn=oracleContext
 
      -j <pw_file>       Password file of TNS admin user
+
+     -f <tns_file>      tnsnames.ora file
 
      --sid <SID>        ORACLE_SID
                         Default: ${localH}
@@ -111,6 +155,11 @@ OPTIONS
                            SHARED to specify whether client request be served by shared server
                            POOLED to get a connection from the connection pool if database resident 
                              connection pooling is enabled on the server
+
+     --chost <host>     Connection Manager Host
+
+     --tag <name>       Tag for duplicate name service entries
+                        Default: MSIE
 
 Entra ID Integration Options
 
@@ -270,8 +319,10 @@ pyLdapSearch() {
     'sub') pyLdpScope='ldap.SCOPE_SUBTREE';;
   esac
 
-/usr/bin/${pycmd} - 2>> ${pylog} <<EOPY
+#/usr/bin/${pycmd} - 2>> ${pylog} <<EOPY
+/usr/bin/${pycmd} - <<EOPY
 import sys,ldap,ldif
+sys.tracebacklimit = 0
 
 ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
 
@@ -296,18 +347,19 @@ try:
    l.simple_bind_s(binddn, pw)
 
 except ldap.SERVER_DOWN:
-  print("LDAP server is unavailable.")
+  print("ERROR: LDAP server is unavailable.")
   exit(1)
 
 except ldap.INVALID_CREDENTIALS:
-  print("Your username or password is incorrect.")
-  exit(1)
+  print("ERROR: Your username or password is incorrect.")
+  exit(49)
 
 except ldap.LDAPError as e:
   if type(e.message) == dict and e.message.has_key('desc'):
       print(e.message['desc'])
   else:
       print(e)
+  l.unbind_s()
   exit(0)
 
 # Perform search operation
@@ -326,10 +378,26 @@ try:
             lc=result_data[0][1]
             lw.unparse(ldn,lc)
 
-except ldap.LDAPError as e:
-    print(e)
+except ldap.NO_SUCH_OBJECT:
+   print("database entry or naming context (${suffix}) does not exist.")
+   l.unbind_s()
+   exit(1)
+
+except ldap.INSUFFICIENT_ACCESS:
+   print("insufficent access to search.")
+   l.unbind_s()
+   exit(1)
+
+#except ldap.LDAPError as e:
+#    print(e.info)
+#   print(e.message['result'])
+#    print(e.message['info'])
+#    print(e)
+#   l.unbind_s()
+#   exit(1)
 
 l.unbind_s()
+exit(0)
 EOPY
    pyRC=$?
    if [ ${pyRC} -ne 0 ]
@@ -359,15 +427,16 @@ unregister_db() {
    ldpProto='ldaps'
    if [ "${dbg}" == 'true' ];then set -x;fi
 
-   echo -e "Unregister database ${dbAlias}"
+   echo -e "Unregister database ${dbAlias}...\c"
 
    regdb_log="${logdir}/regdb-${now}.log"
    touch "${regdb_log}"
    chmod 0600 "${regdb_log}"
 
    getPyCmd
-   ${pycmd} - >> ${regdb_log} 2>&1 <<EOPY
+   ${pycmd} - <<EOPY
 import sys,ldap,ldif, ldap.modlist as modlist
+sys.tracebacklimit = 0
 
 ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
 
@@ -387,33 +456,55 @@ try:
    l.simple_bind_s(binddn, pw)
 
 except ldap.SERVER_DOWN:
-  print("LDAP server is unavailable.")
-  exit(1)
+   print("ERROR: LDAP server is unavailable.")
+   exit(1)
 
 except ldap.INVALID_CREDENTIALS:
-  print("Your username or password is incorrect.")
-  exit(1)
+   print("ERROR: The username or password is incorrect.")
+   exit(49)
+
+except ldap.INSUFFICIENT_ACCESS:
+   print("insufficent access to remove entry ${dbAlias}.")
+   l.unbind_s()
+   exit(1)
 
 except ldap.LDAPError as e:
-  if type(e.message) == dict and e.message.has_key('desc'):
-      print(e.message['desc'])
-      exit(1)
-  else:
+   if type(e.message) == dict and e.message.has_key('desc'):
+       print(e.message['result'])
+   else:
       print(e)
-  exit(0)
+   l.unbind_s()
+   exit(1)
 
 # Delete the DB entry
-l.delete_s('cn=${dbAlias},cn=OracleContext,${suffix}')
+try:
+   l.delete_s('cn=${dbAlias},cn=OracleContext,${suffix}')
+
+except ldap.NO_SUCH_OBJECT:
+   print("database entry or naming context (${suffix}) does not exist.")
+   l.unbind_s()
+   exit(1)
+
+except ldap.LDAPError as e:
+   if type(e.message) == dict and e.message.has_key('desc'):
+       print(e.message['result'])
+   else:
+      print(e)
+   l.unbind_s()
+   exit(1)
+
+print("success")
 
 # Unbind before disconnecting
 l.unbind_s()
+exit(0)
 EOPY
    pyRC=$?
-   case ${pyRC} in
-         0) echo "Database unregistration completed successfully";;
-         *) echo "ERROR: Database unregistration failed";;
-   esac
-   set +x
+#   case ${pyRC} in
+#         0) echo "Database unregistration completed successfully";;
+#         *) echo "ERROR: Database unregistration failed";;
+#   esac
+#   set +x
 }
 
 ##############################################################################
@@ -424,15 +515,16 @@ register_db() {
    ldpProto='ldaps'
    if [ "${dbg}" == 'true' ];then set -x;fi
 
-   echo -e "Register database ${dbAlias}"
+   echo -e "Register database ${dbAlias}...\c"
 
    regdb_log="${logdir}/regdb-${now}.log"
    touch "${regdb_log}"
    chmod 0600 "${regdb_log}"
 
    getPyCmd
-   ${pycmd} - >> ${regdb_log} 2>&1 <<EOPY
+   ${pycmd} - <<EOPY
 import sys,ldap,ldif, ldap.modlist as modlist
+sys.tracebacklimit = 0
 
 ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
 
@@ -452,20 +544,19 @@ try:
    l.simple_bind_s(binddn, pw)
 
 except ldap.SERVER_DOWN:
-  print("LDAP server is unavailable.")
-  exit(1)
+   print("ERROR: LDAP server is unavailable.")
+   exit(1)
 
 except ldap.INVALID_CREDENTIALS:
-  print("Your username or password is incorrect.")
-  exit(1)
+   print("ERROR: The username or password is incorrect.")
+   exit(49)
 
 except ldap.LDAPError as e:
-  if type(e.message) == dict and e.message.has_key('desc'):
-      print(e.message['desc'])
-      exit(1)
-  else:
+   if type(e.message) == dict and e.message.has_key('desc'):
+       print(e.message['result'])
+   else:
       print(e)
-  exit(0)
+   exit(1)
 
 # A dict to help build the "body" of the object
 attrs = {}
@@ -482,26 +573,51 @@ attrs['orclNetDescName'] = b'000:cn=DESCRIPTION_0'
 attrs['orclAci'] = b'access to attr=(*) by dn="${tnsAdmin}" (compare, search, read, selfwrite, write)'
 attrs['orclEntryLevelAci'] = [b'access to entry by dn="${tnsAdmin}" (add)',b'access to attr=(*) by dn="${tnsAdmin}" (read, write)']
 
-# Other attributes that normally exist but I don't know what the values are
-#attrs['oracleAci'] = b'access to entry by dn="${tnsAdmin}" (browse, add, delete)',
-#userPassword: {MR-SHA512}cXxZ+OSnT5GhV96zxMxGEi8vS9xNFOZG2MhlXbDPJZq6DytQZEL0JPVKZFqZ4OmvMm7/j6rMZ2qqM1LBeFp/+ZfFybx+VZN+x4vnErgBz5A=
-#userPassword: {SSHA}EiE7dhOtUOG5Q0ccpMUKiogJjJp0/BcxdSObVw==
-#orclcommonrpwdattribute: {SASL-MD5}jWZfBnyIzPfXwhhyjRyr7w==
-
 # Convert the array to LDIF
 ldif = modlist.addModlist(attrs)
 
 # Add the DB entry
-l.add_s('cn=${dbAlias},cn=OracleContext,${suffix}',ldif)
+try:
+   l.add_s('cn=${dbAlias},cn=OracleContext,${suffix}',ldif)
+
+except ldap.OBJECT_CLASS_VIOLATION:
+   print("ERROR: Object class violation.")
+   exit(65)
+
+except ldap.ALREADY_EXISTS:
+   print("already exists.")
+   l.unbind_s()
+   exit(1)
+
+except ldap.INSUFFICIENT_ACCESS:
+   print("insufficent access to add entry ${dbAlias}.")
+   l.unbind_s()
+   exit(1)
+
+except ldap.NO_SUCH_OBJECT:
+   print("naming context (${suffix}) does not exist.")
+   l.unbind_s()
+   exit(1)
+
+#except ldap.LDAPError as e:
+#   print(e)
+#   exit(1)
+
+except ldap.LDAPError as e:
+  if type(e.message) == dict and e.message.has_key('desc'):
+      print(e.message['desc'])
+  else:
+      print(e)
+  l.unbind_s()
+  exit(0)
+
+print("success")
 
 # Unbind before disconnecting
 l.unbind_s()
+exit(0)
 EOPY
    pyRC=$?
-   case ${pyRC} in
-         0) echo "Database registration completed successfully";;
-         *) echo "ERROR: Database registration failed";;
-   esac
    set +x
 }
 
@@ -511,11 +627,18 @@ EOPY
 list_dbs() {
    echo "List registered databases"
 
-   if [ "${dbg}" == 'true' ]
+   dbList=$(pyLdapSearch ldaps "${dsHost}" "${ldapsPort}" "${tnsAdmin}" "${suffix}" 'sub' "(|(objectClass=orclDBServer)(objectClass=orclNetService))")
+   ck4err=$(echo "${dbList}"|grep "does not exist"|sed -e "s/database entry/No database entries/g")
+
+   if [ -n "${ck4err}" ]
    then
-      pyLdapSearch ldaps "${dsHost}" "${ldapsPort}" "${tnsAdmin}" "${suffix}" 'sub' "(|(objectClass=orclDBServer)(objectClass=orclNetService))"
+      echo "${ck4err}"
    else
-      pyLdapSearch ldaps "${dsHost}" "${ldapsPort}" "${tnsAdmin}" "${suffix}" 'sub' "(|(objectClass=orclDBServer)(objectClass=orclNetService))"|egrep -i "^dn: |^orclNetDescString:"|sed -e "s/^dn: /\n/g"
+      case ${subcmd} in
+            'list') echo "${dbList}"|grep -i "^dn: "|sed -e "s/^dn: /\n/g" -e "s/cn=//gi"|cut -d',' -f1|grep -v "^$";;
+          'listcs') echo "${dbList}"|egrep -i "^dn: |^orclNetDescString:"|sed -e "s/^dn: /\n/g";;
+        'listldif') echo "${dbList}";;
+      esac
    fi
 }
 
@@ -523,60 +646,191 @@ list_dbs() {
 # Show full entry ofa specific database
 ##############################################################################
 show_db() {
-   echo "Show database ${dbAlias}"
+   case ${subcmd} in
+      'show') echo "Show database ${dbAlias}";;
+    'showcs') echo "Show connect string of database ${dbAlias}";;
+   esac
+
 
    pyResult=$(pyLdapSearch ldaps "${dsHost}" "${ldapsPort}" "${tnsAdmin}" "${suffix}" 'sub' "(cn=${dbAlias})")
 
-   if [ -n "${pyResult}" ]
+   ck4err=$(echo "${pyResult}"|grep "does not exist"|sed -e "s/database entry/Database entry (${dbAlias})/g")
+
+   if [ -n "${ck4err}" ]
    then
-      echo "${pyResult}"
+      echo "${ck4err}"
    else
-      echo "Database ${dbAlias} is not registered"
+      if [ -n "${pyResult}" ]
+      then
+         case ${subcmd} in
+            'show') echo "${pyResult}";;
+          'showcs') cs=$(echo "${pyResult}"|grep -i "^orclNetDescString:"|sed -e "s/orclNetDescString: //gi")
+                    echo "${dbAlias}=${cs}"|sed \
+                       -e 's/[      ]//g' \
+                       -e 's/[[:space:]]*#.*$//' \
+                       | sed \
+                       -e "s/=(DESCRIPTION=/=\n   (DESCRIPTION=/gi" \
+                       -e "s/)(DESCRIPTION=/)\n   (DESCRIPTION=/gi" \
+                       -e "s/)(ADDRESS_LIST=/)\n      (ADDRESS_LIST=/gi" \
+                       -e "s/=(ADDRESS_LIST=/=\n      (ADDRESS_LIST=/gi" \
+                       -e "s/=(SECURITY=/)=\n         (SECURITY=/gi" \
+                       -e "s/)(SECURITY=/)\n         (SECURITY=/gi" \
+                       -e "s/=(SSL_SERVER_DN_MATCH=/=\n            (SSL_SERVER_DN_MATCH=/gi" \
+                       -e "s/)(SSL_SERVER_DN_MATCH=/)\n            (SSL_SERVER_DN_MATCH=/gi" \
+                       -e "s/)(WALLET_LOCATION=/)\n            (WALLET_LOCATION=/gi" \
+                       -e "s/)(TOKEN_AUTH=/)\n            (TOKEN_AUTH=/gi" \
+                       -e "s/)(TENANT_ID=/)\n            (TENANT_ID=/gi" \
+                       -e "s/)(AZURE_DB_APP_ID_URI=/)\n            (AZURE_DB_APP_ID_URI=/gi" \
+                       -e "s/)(CLIENT_ID=/)\n            (CLIENT_ID=/gi" \
+                       -e "s/(LOAD_BALANCE=/\n         (LOAD_BALANCE=/gi" \
+                       -e "s/(CONNECT_TIMEOUT=/\n         (CONNECT_TIMEOUT=/gi" \
+                       -e "s/(RETRY_COUNT=/\n         (RETRY_COUNT=/gi" \
+                       -e "s/(RETRY_DELAY=/\n         (RETRY_DELAY=/gi" \
+                       -e "s/(FAILOVER=/\n         (FAILOVER=/gi" \
+                       -e "s/(TRANSPORT_CONNECT_TIMEOUT=/\n         (TRANSPORT_CONNECT_TIMEOUT=/gi" \
+                       -e "s/)(ADDRESS=/)\n         (ADDRESS=/gi" \
+                       -e "s/=(ADDRESS=/=\n         (ADDRESS=/gi" \
+                       -e "s/=(CONNECT_DATA/=\n         (CONNECT_DATA/gi" \
+                       -e "s/)(CONNECT_DATA/)\n      (CONNECT_DATA/gi" \
+                       -e "s/(SERVER/\n         (SERVER/gi" \
+                       -e "s/(SERVICE_NAME/\n         (SERVICE_NAME/gi"
+                    ;;
+         esac
+      else
+         echo "Database entry (${dbAlias}) or naming context (${suffix}) does not exist."
+         exit
+      fi
    fi
 }
 
 ##############################################################################
-# Show the connect string of specified database entry
+# Export contents of the directory to a tnsnames.ora file
 ##############################################################################
-show_connect_string() {
-   echo "Show connect string of database ${dbAlias}"
+export_to_tnsnames() {
+   # Get list of databases
+   readarray -t dbAliases < <(${curdir}/${cmd} list --suffix "${suffix}"|egrep -v "^Directory Server: |^User: |^List registered databases")
 
-   cs=$(pyLdapSearch ldaps "${dsHost}" "${ldapsPort}" "${tnsAdmin}" "${suffix}" 'sub' "(cn=${dbAlias})"|grep -i "^orclNetDescString:"|sed -e "s/orclNetDescString: //gi")
+   # Convert the list to tnsnames.ora file
+   for (( t=0; t< ${#dbAliases[*]}; t++ ))
+   do
+      echo -e "Exporting ${dbAliases[${t}]}...\c"
+      if [ "${dbg}" == 'true' ];then set -x;fi
+      ${curdir}/${cmd} showcs -n "${dbAliases[${t}]}" --suffix "${suffix}" | egrep -v "^Directory Server:|^User: |^Show conn" >> ${tnsFile}
+      echo >> ${tnsFile}
+      echo "done"
+   done
+   echo "Export to ${tnsFile} complete"
+}
 
-   if [ -n "${cs}" ]
-   then
-      echo ${cs}|sed \
-         -e 's/[      ]//g' \
-         -e 's/[[:space:]]*#.*$//' \
-         | sed \
-         -e "s/=(DESCRIPTION=/=\n   (DESCRIPTION=/gi" \
-         -e "s/)(DESCRIPTION=/)\n   (DESCRIPTION=/gi" \
-         -e "s/)(ADDRESS_LIST=/)\n      (ADDRESS_LIST=/gi" \
-         -e "s/=(ADDRESS_LIST=/=\n      (ADDRESS_LIST=/gi" \
-         -e "s/)(SECURITY=/)\n         (SECURITY=/gi" \
-         -e "s/=(SSL_SERVER_DN_MATCH=/=\n            (SSL_SERVER_DN_MATCH=/gi" \
-         -e "s/)(SSL_SERVER_DN_MATCH=/)\n            (SSL_SERVER_DN_MATCH=/gi" \
-         -e "s/)(WALLET_LOCATION=/)\n            (WALLET_LOCATION=/gi" \
-         -e "s/)(TOKEN_AUTH=/)\n            (TOKEN_AUTH=/gi" \
-         -e "s/)(TENANT_ID=/)\n            (TENANT_ID=/gi" \
-         -e "s/)(AZURE_DB_APP_ID_URI=/)\n            (AZURE_DB_APP_ID_URI=/gi" \
-         -e "s/)(CLIENT_ID=/)\n            (CLIENT_ID=/gi" \
-         -e "s/(LOAD_BALANCE=/\n         (LOAD_BALANCE=/gi" \
-         -e "s/(CONNECT_TIMEOUT=/\n         (CONNECT_TIMEOUT=/gi" \
-         -e "s/(RETRY_COUNT=/\n         (RETRY_COUNT=/gi" \
-         -e "s/(RETRY_DELAY=/\n         (RETRY_DELAY=/gi" \
-         -e "s/(FAILOVER=/\n         (FAILOVER=/gi" \
-         -e "s/(TRANSPORT_CONNECT_TIMEOUT=/\n         (TRANSPORT_CONNECT_TIMEOUT=/gi" \
-         -e "s/)(ADDRESS=/)\n         (ADDRESS=/gi" \
-         -e "s/=(ADDRESS=/=\n         (ADDRESS=/gi" \
-         -e "s/=(CONNECT_DATA/=\n         (CONNECT_DATA/gi" \
-         -e "s/)(CONNECT_DATA/)\n      (CONNECT_DATA/gi" \
-         -e "s/(SERVER/\n         (SERVER/gi" \
-         -e "s/(SERVICE_NAME/\n         (SERVICE_NAME/gi"
-   else
-      echo "Database ${dbAlias} is not registered"
-      exit 1
-   fi
+##############################################################################
+# Export contents of the directory to a tnsnames.ora file for CMAN setup
+##############################################################################
+export_to_tnsnames_for_cman() {
+   if [ -z "${cmanHost}" ];then echo "ERROR: Must specify --chost <host>";exit 1;fi
+   
+   # Get list of databases
+   readarray -t dbAliases < <(${curdir}/${cmd} list --suffix "${suffix}"|egrep -v "^Directory Server: |^User: |^List registered databases")
+
+   # Convert the list to tnsnames.ora file
+   for (( t=0; t< ${#dbAliases[*]}; t++ ))
+   do
+      echo -e "Exporting ${dbAliases[${t}]}...\c"
+      if [ "${dbg}" == 'true' ];then set -x;fi
+      ${curdir}/${cmd} showcs -n "${dbAliases[${t}]}" --suffix "${suffix}" | egrep -v "^Directory Server:|^User: |^Show conn"|sed "s/\((HOST=[^)]*)\)/(\HOST=${cmanHost})/" >> ${tnsFile}
+      echo >> ${tnsFile}
+      echo "done"
+   done
+   echo "Export to ${tnsFile} complete"
+}
+
+##############################################################################
+# Export contents of the directory to a tnsnames.ora file for MSIE setup
+##############################################################################
+export_to_tnsnames_for_msie() {
+   dbProto='TCPS'
+   if [ -z "${dbPort}" ];then echo "ERROR: Must provide --dbport <tcps_port>";errs='true';fi
+   if [ -z "${tokenAuthMethod}" ];then echo "ERROR: Must provide --method <auth_method>";errs='true';fi
+   if [ -z "${tenantID}" ];then echo "ERROR: Must provide --tenantid <msie_tenant_id>";errs='true';fi
+   if [ -z "${clientID}" ];then echo "ERROR: Must provide --clientid <msie_client_id>";errs='true';fi
+   if [ -z "${serveruri}" ];then echo "ERROR: Must provide --serveruri <msie_dbsvr_uri>";errs='true';fi
+   if [ "${errs}" == 'true' ];then exit 1;fi
+
+   # Get list of databases
+   readarray -t dbAliases < <(${curdir}/${cmd} list --suffix "${suffix}"|egrep -v "^Directory Server: |^User: |^List registered databases")
+
+   # Convert the list to tnsnames.ora file
+   for (( t=0; t< ${#dbAliases[*]}; t++ ))
+   do
+      if [ "${dbg}" == 'true' ];then set -x;fi
+      alias=$(echo ${dbAliases[${t}]}|cut -d'=' -f1)
+      upperalias=$(echo ${alias}|tr '[:lower:]' '[:upper:]')
+      cs=$(${curdir}/${cmd} showcs -n "${dbAliases[${t}]}" --suffix "${suffix}")
+      ck4msie=$(echo ${cs}|grep -i "TOKEN_AUTH")
+      if [ -z "${ck4msie}" ]
+      then
+         echo -e "Exporting ${upperalias}_${tag}...\c"
+         encodeduri=$(echo ${serveruri}|sed -e "s/\//%2F/g")
+         echo "${cs}" \
+            | egrep -v "^Directory Server:|^User: |^Show conn" \
+            | sed -e "s/^${alias}=/${upperalias}_${tag}=/" \
+                  -e "s/\((PROTOCOL=[^)]*)\)/(\PROTOCOL=${dbProto})/" \
+                  -e "s/\((PORT=[^)]*)\)/(\PORT=${dbPort})/" \
+                  -e "s/(CONNECT_DATA=/(SECURITY=(SSL_SERVER_DN_MATCH=TRUE)(WALLET_LOCATION=SYSTEM)(TOKEN_AUTH=${tokenAuthMethod})(TENANT_ID=${tenantID})(CLIENT_ID=${clientID})(AZURE_DB_APP_ID_URI=${encodeduri}))(CONNECT_DATA=/g" \
+                  -e "s/=(SECURITY=/)=\n         (SECURITY=/gi" \
+                  -e "s/)(SECURITY=/)\n         (SECURITY=/gi" \
+                  -e "s/ (SECURITY=/    (SECURITY=/gi" \
+                  -e "s/=(SSL_SERVER_DN_MATCH=/=\n            (SSL_SERVER_DN_MATCH=/gi" \
+                  -e "s/)(SSL_SERVER_DN_MATCH=/)\n            (SSL_SERVER_DN_MATCH=/gi" \
+                  -e "s/)(WALLET_LOCATION=/)\n            (WALLET_LOCATION=/gi" \
+                  -e "s/)(TOKEN_AUTH=/)\n            (TOKEN_AUTH=/gi" \
+                  -e "s/)(TENANT_ID=/)\n            (TENANT_ID=/gi" \
+                  -e "s/)(AZURE_DB_APP_ID_URI=/)\n            (AZURE_DB_APP_ID_URI=/gi" \
+                  -e "s/)(CLIENT_ID=/)\n            (CLIENT_ID=/gi" \
+                  -e "s/=(CONNECT_DATA/=\n         (CONNECT_DATA/gi" \
+                  -e "s/)(CONNECT_DATA/)\n      (CONNECT_DATA/gi" \
+                  -e "s/%2F/\//gi" \
+            >> ${tnsFile}
+         echo "done"
+      else
+         echo -e "Exporting ${dbAliases[${t}]}_${tag}...\c"
+         echo "${cs}" \
+            | egrep -v "^Directory Server:|^User: |^Show conn" \
+            >> ${tnsFile}
+         echo "done"
+      fi
+      echo >> ${tnsFile}
+   done
+   echo "Export to ${tnsFile} complete"
+}
+
+##############################################################################
+# Load entries from tnsnames.ora into the directory
+##############################################################################
+load_tnsnames() {
+   readarray -t dbAliases < <(cat ${tnsFile}|grep -v "^#.*"|sed -e "s/[ 	]//g" -e "s/(.*//g" -e "s/^)$//g" -e "s/=$//g"|grep -v "^$")
+
+   for (( t=0; t< ${#dbAliases[*]}; t++ ))
+   do
+      if [ "${dbg}" == 'true' ];then set -x;fi
+      dbEntry[${t}]=$(cat ${tnsFile} |sed -e "s/#.*//g" -e "s/[ 	]//g"| tr -d '[\n\r]'|sed  -e "s/^.*${dbAliases[${t}]}=/${dbAliases[${t}]}=/g" -e "s/=(DESCRIPTION/\n=(DESCRIPTION/g" -e "s/)[a-zA-Z].*$//g"|tr -d '[\n\r]')
+
+      dbAlias=$(echo ${dbEntry[${t}]}|cut -d'=' -f1)
+      connectString=$(echo ${dbEntry[${t}]}|cut -d'=' -f2-)
+
+      pyResult=$(pyLdapSearch ldaps "${dsHost}" "${ldapsPort}" "${tnsAdmin}" "${suffix}" 'sub' "(cn=${dbAlias})" 2>&1 |grep "cn=${dbAlias}")
+
+      if [ "${dbg}" == 'true' ];then echo -e "pyResult: ${pyResult}";fi
+
+      if [ "${dbg}" == 'true' ];then set -x;fi
+      if [ -n "${pyResult}" ]
+      then
+         echo "Skipping DB alias ${dbAlias} because it already exists."
+      else
+         echo -e "\nAdd DB alias ${dbAlias}...\c"
+         ${curdir}/${cmd} register -n "${dbAlias}" -c "${connectString}" --suffix "${suffix}" 2>&1 |egrep -v "^Directory|^User:|^Register"
+      fi
+
+   done
 
 }
 
@@ -593,6 +847,7 @@ now=$(date +'%Y%m%d%H%M%S')
 pylog="${logdir}/pycmd-${now}.log"
 localHost=$(hostname -f 2> /dev/null|grep "\.")
 localH=$(echo "${localHost}."|cut -d'.' -f 1)
+errs='false'
 
 ###############################################################################
 # Parse arguments
@@ -621,6 +876,8 @@ while (($#)); do
             lb) tnsLB="(LOAD_BALANCE=on)";shift;;
             failover) tnsLB="(FAILOVER=on)";shift;;
             srcroute) tnsSourceRoute="(SOURCE_ROUTE=yes)";shift;;
+            chost) cmanHost="$1";shift;;
+            tag) tag="$1";shift;;
         esac;;
         -*) case ${OPT:1} in
             H) showUsage;;
@@ -631,6 +888,7 @@ while (($#)); do
             p) ldapsPort="$1";shift;;
             D) tnsAdmin="$1";shift;;
             j) jPW="$1";shift;;
+            f) tnsFile="$1";shift;;
             z) dbg="true";dbgFlag=' -z ';;
         esac;;
     esac
@@ -646,12 +904,11 @@ echo "Directory Server: ldaps://${dsHost}:${ldapsPort}"
 
 if [ -n "${jPW}" ];then if [ -e "${jPW}" ];then bPW=$(cat ${jPW});fi;fi
 if [ -z "${tnsAdmin}" ];then tnsAdmin="cn=eusadmin,ou=EUSAdmins,cn=oracleContext";fi
-if [ -z "${ldapPW}" ];then ldapPW="${bPW}";fi
 
 # Provide user context
 if [ -z "${bPW}" ]
 then
-   if [ "${subcmd}" == 'list' ] || [ "${subcmd}" == 'show' ] || [ "${subcmd}" == 'showcs' ]
+   if [ "${subcmd}" == 'list' ] || [ "${subcmd}" == 'listcs' ] || [ "${subcmd}" == 'listldif' ]|| [ "${subcmd}" == 'show' ] || [ "${subcmd}" == 'showcs' ] || [ "${subcmd}" == 'export' ] || [ "${subcmd}" == 'exportcman' ] || [ "${subcmd}" == 'exportmsie' ]
    then
       echo "User: Loging into directory service anonymously"
    elif [ "${subcmd}" == 'register' ] || [ "${subcmd}" == 'unregister' ]
@@ -665,9 +922,9 @@ fi
 if [ -z "${dbAlias}" ];then dbAlias="${localH}";fi
 if [ -z "${dbService}" ];then dbService="${dbAlias}";fi
 
-if [ -z "${suffix}" ];then suffix="dc=example,dc=com";fi
+if [ -z "${suffix}" ];then echo "USAGE: Must specify --suffix <suffix>";exit 1;fi
 
-if [ -z "${bPW}" ] && [ "${subcmd}" != 'help' ] && [ "${subcmd}" != 'list' ] && [ "${subcmd}" != 'show' ] && [ "${subcmd}" != 'showcs' ]
+if [ -z "${bPW}" ] && [ "${subcmd}" != 'help' ] && [ "${subcmd}" != 'list' ] && [ "${subcmd}" != 'listcs' ] && [ "${subcmd}" != 'listldif' ] && [ "${subcmd}" != 'show' ] && [ "${subcmd}" != 'showcs' ] && [ "${subcmd}" != 'export' ] && [ "${subcmd}" != 'exportcman' ] && [ "${subcmd}" != 'exportmsie' ]
 then
    echo -e "Enter directory service TNS admin user's password: \c"
    while IFS= read -r -s -n1 char
@@ -683,6 +940,9 @@ then
      fi
    done
 fi
+
+if [ -z "${ldapPW}" ];then ldapPW="${bPW}";fi
+export bPW ldapPW
 
 if [ -z "${dbAlias}" ];then Alias="${localH}";fi
 if [ -z "${dbSid}" ];then dbSid="${dbAlias}";fi
@@ -752,7 +1012,11 @@ else
    connectString="(DESCRIPTION=(ADDRESS=(PROTOCOL=${dbProto})(HOST=${dbHost})(PORT=${dbPort}))(CONNECT_DATA=(SERVER=${dbServiceType})(SERVICE_NAME=${dbService})))"
 fi
 
+if [ -z "${tnsFile}" ];then tnsFile="${curdir}/tnsnames.ora";fi
+
 if [ -n "${myConnectString}" ];then connectString="${myConnectString}";fi
+if [ -z "${tag}" ];then tag="MSIE";fi
+tag=$(echo ${tag}|tr '[:lower:]' '[:upper:]')
 
 ###############################################################################
 # Process subcommand
@@ -762,8 +1026,14 @@ case ${subcmd} in
        'register') register_db;;
      'unregister') unregister_db;;
            'list') list_dbs;;
+         'listcs') list_dbs;;
+       'listldif') list_dbs;;
            'show') show_db;;
-         'showcs') show_connect_string;;
+         'showcs') show_db;;
+         'export') export_to_tnsnames;;
+     'exportcman') export_to_tnsnames_for_cman;;
+     'exportmsie') export_to_tnsnames_for_msie;;
+           'load') load_tnsnames;;
                 *) showUsage;;
 esac
 set +x
