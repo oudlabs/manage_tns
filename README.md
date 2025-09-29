@@ -122,7 +122,7 @@ Entra ID Integration Options
 ## Examples
 
 **Example 1: Register a database**  
-$ /u01/manage_tns.sh.sh register -n mydb --suffix "dc=example,dc=com"
+$ /u01/manage_tns.sh.sh register -n mydb --suffix "dc=example,dc=com"  
 Directory Server: ldaps://tns1.example.com:10636  
 User: Loging into directory as cn=eusadmin,ou=EUSAdmins,cn=oracleContext  
 Enter directory service TNS admin user's password: *********  
@@ -140,7 +140,7 @@ Database registration completed successfully
 
 
 **Example 3: List registered databases**  
-$ /u01/manage_tns.sh list --suffix "dc=example,dc=com"
+$ /u01/manage_tns.sh list --suffix "dc=example,dc=com"  
 Directory Server: ldaps://tns1.example.com:10636  
 User: Loging into directory service anonymously  
 List registered databases  
@@ -148,7 +148,7 @@ mydb
 mypdb
 
 **Example 4: Show specific registered database**  
-$ /u01/manage_tns.sh show -n mypdb --suffix "dc=example,dc=com" 
+$ /u01/manage_tns.sh show -n mypdb --suffix "dc=example,dc=com"  
 Directory Server: ldaps://tns1.example.com:10636  
 User: Loging into directory service anonymously  
 Show database mypdb  
@@ -169,7 +169,7 @@ orclSystemName: tns1.example.com
 orclVersion: 121000  
 
 **Example 5: Un-register a database**  
-$ /u01/manage_tns.sh.sh unregister -n mydb --suffix "dc=example,dc=com"
+$ /u01/manage_tns.sh.sh unregister -n mydb --suffix "dc=example,dc=com"  
 Directory Server: ldaps://tns1.example.com:10636  
 User: Loging into directory as cn=eusadmin,ou=EUSAdmins,cn=oracleContext  
 Enter directory service TNS admin user's password: *********  
@@ -177,7 +177,7 @@ Unregister database mydb
 Database unregistration completed successfully  
 
 **Example 6: List registered databases**  
-manage_tns.sh list --suffix "dc=example,dc=com"
+manage_tns.sh list --suffix "dc=example,dc=com"  
 Directory Server: ldaps://tns1.example.com:10636  
 User: Loging into directory service anonymously  
 List registered databases  
@@ -196,7 +196,7 @@ Database registration completed successfully
   
  
 **Example 8: Show database pdb3**  
-$ /u01/manage_tns.sh show -n pdb3 --suffix "dc=example,dc=com" 
+$ /u01/manage_tns.sh show -n pdb3 --suffix "dc=example,dc=com"  
 Directory Server: ldaps://tns1.example.com:10636  
 User: Loging into directory service anonymously  
 Show database pdb3  
