@@ -388,6 +388,11 @@ except ldap.INSUFFICIENT_ACCESS:
    l.unbind_s()
    exit(1)
 
+except ldap.SIZELIMIT_EXCEEDED:
+   print("The result set was limited by default size-limit.\nYou will need to increase the user's size-limit.\nSee: https://www.braddiggs.com/2025/10/constraining-tns-searches.html")
+   l.unbind_s()
+   exit(1)
+
 #except ldap.LDAPError as e:
 #    print(e.info)
 #   print(e.message['result'])
@@ -630,7 +635,7 @@ list_dbs() {
    echo "List registered databases"
 
    dbList=$(pyLdapSearch ldaps "${dsHost}" "${ldapsPort}" "${tnsAdmin}" "${suffix}" 'sub' "(|(objectClass=orclDBServer)(objectClass=orclNetService))")
-   ck4err=$(echo "${dbList}"|grep "does not exist"|sed -e "s/database entry/No database entries/g")
+   ck4err=$(echo "${dbList}"|egrep "does not exist|size-limit|https"|sed -e "s/database entry/No database entries/g")
 
    if [ -n "${ck4err}" ]
    then
